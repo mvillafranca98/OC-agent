@@ -42,14 +42,24 @@ Do not introduce paid connectors by default.
 ## Provider feature flags (required)
 
 - `SEARCH_PROVIDER=duckduckgo`
-- `ENRICHMENT_PROVIDER=none`
-- `ALLOW_PAID_PROVIDERS=false`
+- `ENRICHMENT_PROVIDER=apollo` (or `none` to disable)
+- `ALLOW_PAID_PROVIDERS=true` (required when ENRICHMENT_PROVIDER=apollo)
 
 If `ALLOW_PAID_PROVIDERS=false`, paid providers must not run.
 
+## Apollo enrichment (email — enabled)
+
+When `ENRICHMENT_PROVIDER=apollo` and `ALLOW_PAID_PROVIDERS=true`:
+- Call `POST https://api.apollo.io/v1/people/match` with `name` and `domain`
+- Use `APOLLO_API_KEY` from environment (free tier: ~50 exports/mo, returns email only)
+- Enforce ≥5s between Apollo calls
+- If Apollo returns no match, leave `email` blank — do not guess or fabricate
+- Phone numbers require Apollo paid plan — leave `phone` blank on free tier
+- Add `email` and `phone` columns to output CSV
+
 ## Optional add-ons (off by default)
 
-Paid search/enrichment adapters are optional integrations and remain disabled unless explicitly enabled by feature flag and user approval.
+Paid search adapters remain disabled unless explicitly enabled by feature flag and user approval.
 
 ## Rate limits (must enforce)
 
