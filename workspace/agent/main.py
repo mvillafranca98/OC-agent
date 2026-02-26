@@ -13,6 +13,7 @@ from workspace.agent.pipeline.company_pipeline import CompanyPipeline
 from workspace.agent.pipeline.mlo_pipeline import MLOPipeline
 from workspace.agent.providers.enrich_apollo import ApolloEnrichmentProvider
 from workspace.agent.providers.enrich_base import EnrichmentProvider
+from workspace.agent.providers.enrich_hunter import HunterEnrichmentProvider
 from workspace.agent.providers.enrich_none import NoEnrichmentProvider
 from workspace.agent.providers.scrape_requests import RequestsScrapeProvider
 from workspace.agent.providers.search_base import SearchProvider
@@ -72,6 +73,14 @@ def _build_enrichment_provider(settings: AgentSettings) -> EnrichmentProvider:
     if not settings.allow_paid_providers:
         raise ValueError(
             "Paid enrichment provider requested while ALLOW_PAID_PROVIDERS=false."
+        )
+    if settings.enrichment_provider == "hunter":
+        api_key = os.getenv("HUNTER_API_KEY", "")
+        if not api_key:
+            raise ValueError("HUNTER_API_KEY is not set in environment.")
+        return HunterEnrichmentProvider(
+            api_key=api_key,
+            interval_seconds=settings.api_interval_seconds,
         )
     if settings.enrichment_provider == "apollo":
         api_key = os.getenv("APOLLO_API_KEY", "")
