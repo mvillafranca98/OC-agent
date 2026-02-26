@@ -47,15 +47,25 @@ Do not introduce paid connectors by default.
 
 If `ALLOW_PAID_PROVIDERS=false`, paid providers must not run.
 
-## Apollo enrichment (email — enabled)
+## Email enrichment (enabled when ALLOW_PAID_PROVIDERS=true)
 
-When `ENRICHMENT_PROVIDER=apollo` and `ALLOW_PAID_PROVIDERS=true`:
-- Call `POST https://api.apollo.io/v1/people/match` with `name` and `domain`
-- Use `APOLLO_API_KEY` from environment (free tier: ~50 exports/mo, returns email only)
-- Enforce ≥5s between Apollo calls
-- If Apollo returns no match, leave `email` blank — do not guess or fabricate
-- Phone numbers require Apollo paid plan — leave `phone` blank on free tier
-- Add `email` and `phone` columns to output CSV
+Two providers are available. Set `ENRICHMENT_PROVIDER` to choose one.
+
+**Hunter.io** (`ENRICHMENT_PROVIDER=hunter`, `HUNTER_API_KEY` required)
+- `GET https://api.hunter.io/v2/email-finder?full_name={name}&domain={domain}&api_key={key}`
+- Free tier: 25 email searches/month
+- Returns verified work email only — no phone
+- Enforce ≥5s between calls
+- If no match, leave `email` blank — do not guess or fabricate
+
+**Apollo.io** (`ENRICHMENT_PROVIDER=apollo`, `APOLLO_API_KEY` required)
+- `POST https://api.apollo.io/v1/people/match` with `name` and `domain`
+- Requires paid plan (~$49/mo) — free tier returns API_INACCESSIBLE error
+- Returns email + phone on paid plan
+- Enforce ≥5s between calls
+- If no match or error, leave `email` and `phone` blank
+
+Both providers add `email` and `phone` columns to the output CSV.
 
 ## Optional add-ons (off by default)
 
