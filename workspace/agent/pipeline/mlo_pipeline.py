@@ -199,6 +199,8 @@ class MLOPipeline:
                     "current_title": row.get("current_title", ""),
                     "location": row.get("location", ""),
                     "linkedin_url": _linkedin_url(results),
+                    "email": contact.email,
+                    "phone": contact.phone,
                     "company_website": contact.company_website,
                     "contact_page_url": contact.contact_page_url,
                     "suggested_email_pattern": contact.suggested_email_pattern,
