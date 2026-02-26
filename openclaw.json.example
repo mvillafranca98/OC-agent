@@ -1,0 +1,41 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "~/.openclaw/workspace",
+      "model": "anthropic/claude-3-5-haiku-latest",
+      "heartbeat": {
+        "every": "1h",
+        "model": "ollama/llama3.2:3b",
+        "prompt": "Read HEARTBEAT.md if it exists (workspace context). Any blockers, opportunities, or progress updates? If nothing needs attention, reply HEARTBEAT_OK.",
+        "target": "none"
+      }
+    },
+    "list": [
+      {
+        "id": "mortgage-signals",
+        "default": true
+      }
+    ]
+  },
+  "models": {
+    "providers": {
+      "anthropic": {
+        "apiKey": "${ANTHROPIC_API_KEY}"
+      },
+      "ollama": {
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "apiKey": "ollama-local",
+        "api": "openai-responses"
+      }
+    },
+    "defaults": {
+      "provider": "anthropic",
+      "model": "anthropic/claude-3-5-haiku-latest"
+    },
+    "aliases": {
+      "haiku": "anthropic/claude-3-5-haiku-latest",
+      "sonnet": "anthropic/claude-sonnet-4",
+      "opus": "anthropic/claude-opus-4"
+    }
+  }
+}
