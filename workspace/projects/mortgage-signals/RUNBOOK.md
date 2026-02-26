@@ -1,49 +1,59 @@
 # Mortgage Signals Agent — Runbook
 
-How to run daily or weekly lead generation and where to find outputs.
+How to run daily or weekly lead generation with strict low-cost defaults.
 
 ---
 
 ## Prerequisites
 
-- OpenClaw installed and configured (see repo README). Workspace pointed at this workspace (default `~/.openclaw/workspace` or repo `workspace/`).
-- Ollama running with heartbeat model (e.g. `llama3.2:3b`) so idle heartbeats use no paid tokens.
-- API keys in env: Anthropic; `BRAVE_API_KEY` (Brave Search — configured); optional contact enrichment if using enrichment step (see Phase 3).
-- Budget: Decide daily (and optionally monthly) cap. Use 75% of daily cap as warning threshold; check Anthropic console and log warnings in the daily summary when approaching it.
+- OpenClaw installed and configured (see repo README).
+- Ollama running with heartbeat model (for example `llama3.2:3b`) so heartbeat uses no paid API tokens.
+- Required env key: `ANTHROPIC_API_KEY`.
+- Provider flags:
+  - `SEARCH_PROVIDER=duckduckgo`
+  - `ENRICHMENT_PROVIDER=none`
+  - `ALLOW_PAID_PROVIDERS=false`
+- Budget policy:
+  - Daily budget target: $5
+  - Monthly budget target: $200
+  - Warning at 75% of each budget
 
 ---
 
-## Workflow A: MLO leads
+## Workflow A: MLO leads (verified identities only)
 
-1. **Define target** — Geography (state, branch area) and role constraints (e.g. “loan officer,” “mortgage loan officer,” “producing LO”). Note the requested batch size (e.g. 10, 25, 50).
-2. **Pull real individuals from NMLS (primary source, browser)** — Use the browser tool to navigate NMLS Consumer Access (see TOOLS.md for steps). Extract real, licensed MLO names, NMLS IDs, employers, and cities for the target state. Collect the full requested batch size using pagination. Do NOT invent any names — every lead must be a real NMLS record.
-3. **Gather signals via Brave Search** — Group leads by employer. For each unique employer, run targeted searches: layoffs, CFPB/regulatory actions, Glassdoor reviews, branch closures, financial news. Apply those employer-level signals to all leads at that company. Max 5 searches per batch then ~2 min break. Also run individual-level searches for top candidates (e.g. name + “open to work”).
-4. **Normalize / dedupe** — Merge any duplicates across pages. Use Sonnet for ambiguous identity resolution if needed.
-5. **Score** — Apply SIGNAL_LIBRARY.md (MLO signals) and SCORING_RUBRIC.md (weights + confidence). Produce score_total and score_breakdown per lead.
-6. **Enrich contacts** — Attempt Apollo people/match enrichment per lead for email + LinkedIn URL (see TOOLS.md). If Apollo returns 403, fall back to Brave Search LinkedIn lookup. Leave phone blank (requires Apollo paid plan). Note enrichment hit rate in daily summary.
-7. **Export** — Write ranked list to `outputs/mlo_leads_YYYY-MM-DD.csv` and update `outputs/daily_summary_YYYY-MM-DD.md`. Every lead must have: full_name, nmls_id, current_company, current_title, location, linkedin_url, email, email_verification_status, phone, score_total, score_breakdown, signals, recommended_next_action, evidence_urls, evidence_snippets.
+1. **Define target** — Geography and role scope; set batch size.
+2. **Pull real individuals from NMLS (required for live run)** — Use browser workflow in TOOLS.md. Collect real `full_name`, `nmls_id`, employer, and location.
+3. **Fail closed if NMLS is unavailable** — Do not synthesize names. Ask user for a seed CSV/list or run dry-run scoring only.
+4. **Gather public signals** — Use free search + direct public-page scraping for employer and individual evidence.
+5. **Normalize and dedupe** — Merge duplicates; use Sonnet only for ambiguous identity resolution.
+6. **Score** — Apply `SIGNAL_LIBRARY.md` and `SCORING_RUBRIC.md` using evidence-backed signals.
+7. **Integrity gate before export**:
+   - Exclude leads with unverifiable identity.
+   - If evidence is missing/ambiguous, set `recommended_next_action=insufficient_evidence`.
+8. **Export** — Write `projects/mortgage-signals/outputs/mlo_leads_YYYY-MM-DD.csv` and update `projects/mortgage-signals/outputs/daily_summary_YYYY-MM-DD.md`.
 
-**Outputs:** `outputs/mlo_leads_YYYY-MM-DD.csv`, `outputs/daily_summary_YYYY-MM-DD.md`
+**Required MLO columns:**
+`full_name, nmls_id, current_company, current_title, location, linkedin_url, score_total, score_breakdown, recommended_next_action, evidence_urls, evidence_snippets`
 
 ---
 
 ## Workflow B: Distressed companies
 
-1. **Define target** — Geography and company types (e.g. mortgage lenders, brokers, by state or region).
-2. **Crawl sources** — News, reviews (Glassdoor/Indeed/Google), public lists. Respect same rate limits as workflow A.
-3. **Identify / dedupe** — Resolve company entities; use Sonnet for ambiguous dedupe.
-4. **Score distress** — Apply SIGNAL_LIBRARY.md (company distress signals) and SCORING_RUBRIC.md. Build distress hypothesis summary and evidence list per company.
-5. **Export** — Write ranked list to `outputs/company_leads_YYYY-MM-DD.csv` and update `outputs/daily_summary_YYYY-MM-DD.md` (append or add a section).
-
-**Outputs:** `outputs/company_leads_YYYY-MM-DD.csv`, `outputs/daily_summary_YYYY-MM-DD.md`
+1. **Define target** — Geography and company type.
+2. **Crawl public sources** — News/reviews/regulatory updates with rate limits.
+3. **Identify/dedupe** — Resolve company entities.
+4. **Score distress** — Apply rubric with evidence links/snippets.
+5. **Integrity gate** — If evidence is weak, mark `insufficient_evidence`.
+6. **Export** — Write `projects/mortgage-signals/outputs/company_leads_YYYY-MM-DD.csv` and update daily summary.
 
 ---
 
-## Running
+## Running cadence
 
-- **Daily:** Run workflow A and/or B as needed. Use the same date in filenames (YYYY-MM-DD = today).
-- **Weekly:** Same steps; can run both workflows in one session. Keep outputs date-stamped.
-- **Budget check:** Before or after each run, check usage in Anthropic console. If near 75% of daily cap, add a budget warning to the daily summary and to `memory/YYYY-MM-DD.md`.
+- **Daily/weekly:** Run workflow A and/or B with date-stamped outputs.
+- **Cost controls:** Enforce max 5 searches per batch and cooldown. Stop on repeated 429s.
+- **Budget logging:** If near 75% of daily/monthly budget, add warning to daily summary and memory.
 
 ---
 
@@ -51,60 +61,20 @@ How to run daily or weekly lead generation and where to find outputs.
 
 | File | Content |
 |------|--------|
-| `outputs/mlo_leads_YYYY-MM-DD.csv` | Ranked MLO leads: full_name, current_company, current_title, location, linkedin_url, email, email_verification_status, phone, phone_type (direct/mobile/office), nmls_id, signals (or summary), score_total, score_breakdown, recommended_next_action, evidence URLs/snippets as columns or consolidated. |
-| `outputs/company_leads_YYYY-MM-DD.csv` | Ranked companies: company_name, website, HQ/location, size (optional), signals, score_total, breakdown, distress_hypothesis_summary, evidence list, recommended_next_action. |
-| `outputs/daily_summary_YYYY-MM-DD.md` | Summary of run: counts, any budget warnings, escalations to Sonnet (with reason), blockers, next steps. |
+| `projects/mortgage-signals/outputs/mlo_leads_YYYY-MM-DD.csv` | Ranked MLO leads with verified identity fields and explainable score breakdowns. |
+| `projects/mortgage-signals/outputs/company_leads_YYYY-MM-DD.csv` | Ranked companies with distress score, hypothesis summary, and evidence. |
+| `projects/mortgage-signals/outputs/daily_summary_YYYY-MM-DD.md` | Run summary with counts, budget warnings, model escalations, blockers, and next steps. |
 
 ---
 
 ## Human-in-the-loop
 
-- All outreach (email, InMail, calls) is done by humans. The agent never sends messages.
-- Optional Phase 3: outreach drafts generated by the agent (Sonnet) are for human review only; human approves and sends.
-- If enrichment (e.g. Apollo.io, Hunter.io) is used, it is for contact lookup and verification only; no autonomous contact.
+- Agent is research-only. It never sends outreach.
+- Outreach decisions and sends are human actions only.
+- Do not add or recommend extra paid services unless the user explicitly asks.
 
 ---
 
-## Phase 3 (optional): Enrichment and outreach drafts
+## Optional add-ons (explicit request only)
 
-### Contact enrichment (email + phone)
-
-The agent can look up email addresses and direct phone numbers for each MLO lead using an approved enrichment provider. **Recommended options:**
-
-| Provider | Email | Phone | Free tier | Env key |
-|----------|-------|-------|-----------|---------|
-| **Apollo.io** (recommended) | ✓ | ✓ direct + mobile | Yes (limited credits/mo) | `APOLLO_API_KEY` |
-| **Hunter.io** | ✓ | ✗ | Yes (25 searches/mo) | `HUNTER_API_KEY` |
-| **RocketReach** | ✓ | ✓ | Paid | `ROCKETREACH_API_KEY` |
-| **People Data Labs** | ✓ | ✓ | Free credits on signup | `PDL_API_KEY` |
-
-**Apollo.io is the recommended choice** because it provides both email and direct/mobile phone in one call, has a usable free tier, and covers mortgage industry professionals well.
-
-**How to set up Apollo.io:**
-1. Sign up at apollo.io → API settings → generate key.
-2. Add `APOLLO_API_KEY=<your-key>` to `~/.openclaw/.env` and the project `.env`.
-3. Tell the agent to “enrich MLO leads with Apollo.io” in your run prompt.
-
-**Enrichment behavior (agent must follow):**
-- Call enrichment API per lead (or batch where API supports it). Respect API rate limits.
-- Store results in CSV columns: `email`, `email_verification_status`, `phone`, `phone_type` (direct/mobile/office).
-- If enrichment returns no result, leave fields blank; do not guess.
-- Do not send email, make calls, or use contact info for any autonomous outreach.
-- Log enrichment counts and any API errors in the daily summary.
-
-**Hunter.io (email only) setup:**
-1. Sign up at hunter.io → API key.
-2. Add `HUNTER_API_KEY=<your-key>` to `~/.openclaw/.env` and the project `.env`.
-3. Tell the agent to “verify emails with Hunter.io” in your run prompt.
-
-### Outreach drafts
-
-- Use **Sonnet** for draft quality. Generate drafts only; do not send.
-- Output drafts to a dedicated file or section (e.g. `outputs/outreach_drafts_YYYY-MM-DD.md` or a column in the lead CSV). Each draft should be clearly marked as “for human review.”
-- Human review workflow: recruiter reviews draft, edits if needed, then sends via their own channel. Document this in your team’s playbook; the agent does not perform the send.
-
-### Human-in-the-loop summary
-
-1. Agent produces ranked lists + contact info (email/phone) + optional drafts.
-2. Human reviews lists, verifies contact details, and reviews drafts.
-3. Human approves and sends any outreach. Agent never sends.
+Paid search/enrichment adapters and outreach draft generation are optional. Use only when the user explicitly asks and feature flags permit usage.
