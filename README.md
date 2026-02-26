@@ -1,61 +1,255 @@
 # Mortgage Signals Agent (OpenClaw)
 
-Research-only OpenClaw agent for EPA mortgage recruiting: ranked lead lists for **MLOs likely to move** and **mortgage companies potentially distressed or ready to sell**, with evidence and explainable scoring.
+Research-only OpenClaw workspace for low-cost mortgage signal collection and lead scoring. The agent discovers active California MLOs from public sources, scores them on job-switch propensity, and exports ranked CSV outputs — no outreach, no fabrication.
 
-## What this repo contains
+---
 
-- **workspace/** — OpenClaw workspace files (SOUL, USER, IDENTITY, AGENTS, TOOLS, HEARTBEAT, memory/, outputs/, projects/mortgage-signals/).
-- **openclaw.json.example** — Example config: Haiku default, Ollama heartbeat, model aliases. Copy and adapt to `~/.openclaw/openclaw.json`; do not commit secrets.
-- **requirements.txt** — For supporting scripts (exporters, signal scoring, enrichment, CSV/Sheet tooling). OpenClaw is the runtime; install it separately.
-- **README.md** — This file.
+## Quickstart
 
-## Setup (Phase 0)
+### Prerequisites
 
-1. **Machine** — Use a dedicated or controlled machine. Install [OpenClaw](https://docs.openclaw.ai) and run `openclaw setup` / `openclaw onboard` as needed.
-2. **Ollama** — Install [Ollama](https://ollama.ai), then pull a small model for heartbeat (e.g. `ollama pull llama3.2:3b`) so idle checks use no paid API tokens.
-3. **Config** — Copy `openclaw.json.example` to `~/.openclaw/openclaw.json`. Set:
-   - Default model to Claude Haiku (or current Haiku model id).
-   - Heartbeat: `every` (e.g. `1h`), `model` to your Ollama model (e.g. `ollama/llama3.2:3b`), and the example prompt.
-   - Ollama provider with `api: "openai-responses"` and correct `baseUrl` (e.g. `http://127.0.0.1:11434/v1`).
-   - Model aliases: `haiku`, `sonnet`, (optional) `opus`.
-4. **Workspace** — Point OpenClaw at this repo’s workspace:
-   - Either copy the contents of `workspace/` into `~/.openclaw/workspace`, or
-   - Set `agents.defaults.workspace` in `openclaw.json` to the full path of this repo’s `workspace/` directory.
-5. **Secrets** — Store in env (e.g. `.env`) or OpenClaw auth; never commit. Typical: `ANTHROPIC_API_KEY`, search API key (e.g. Brave), optional enrichment API key (e.g. Hunter.io).
+| Tool | Version | Install |
+|------|---------|---------|
+| [OpenClaw](https://docs.openclaw.ai) | 2026.2.24+ | See below |
+| [Ollama](https://ollama.ai) | Any | `brew install ollama` |
+| Python | 3.11+ | `brew install python` |
+| Chrome | Any | Required for browser relay |
 
-## Running (Phase 1–2)
+**API keys required:**
 
-- **Workflow A (MLO leads):** See `workspace/projects/mortgage-signals/RUNBOOK.md`. Define geography/role → crawl → dedupe → score → optional enrich → export `outputs/mlo_leads_YYYY-MM-DD.csv` and `outputs/daily_summary_YYYY-MM-DD.md`.
-- **Workflow B (Distressed companies):** Same RUNBOOK. Define geography/company types → crawl → dedupe → score distress → export `outputs/company_leads_YYYY-MM-DD.csv` and update daily summary.
+| Key | Where to get it | Used for |
+|-----|----------------|----------|
+| `ANTHROPIC_API_KEY` | console.anthropic.com | LLM calls (Haiku default) |
+| `BRAVE_API_KEY` | brave.com/search/api | Web search |
+| `APOLLO_API_KEY` | apollo.io → API settings | Email enrichment (optional) |
 
-Run via OpenClaw (e.g. start gateway and ask the agent to run the appropriate workflow). Both workflows are research-only; no autonomous outreach.
+---
 
-## Workspace layout
+### Step 1 — Install OpenClaw
 
-| Path | Purpose |
-|------|--------|
-| SOUL.md, USER.md, IDENTITY.md | Loaded every session; persona, mission, identity. |
-| AGENTS.md | Session init, memory discipline, model routing, rate limits, workflows. |
-| TOOLS.md | Tool usage, rate limits, safety. |
-| HEARTBEAT.md | Optional checklist for heartbeat runs. |
-| memory/ | Daily memory `memory/YYYY-MM-DD.md`. |
-| outputs/ | `mlo_leads_*.csv`, `company_leads_*.csv`, `daily_summary_*.md`. |
-| projects/mortgage-signals/ | SIGNAL_LIBRARY.md, SCORING_RUBRIC.md, RUNBOOK.md. |
+```bash
+# macOS
+curl -fsSL https://install.openclaw.ai | bash
+```
 
-## QA checklist
+Then run the onboarding wizard:
 
-- **Session start:** Context small (~2–8KB typical); only SOUL, USER, IDENTITY, today’s memory.
-- **Heartbeat:** No paid token usage (Ollama only).
-- **Rate limiting:** On 429, agent stops, waits 5 min, retries; backoff documented in AGENTS.md/TOOLS.md.
-- **Lead outputs:** Schema consistent; CSVs open in Google Sheets; no broken formatting.
-- **Scoring:** Score breakdown sums correctly; breakdown present per lead.
-- **Dedupe:** Same person/company not duplicated across sources.
-- **Safety:** Agent refuses send/purchase without explicit confirmation; blocked actions noted for audit.
+```bash
+openclaw onboard
+```
 
-## Supporting scripts
+This creates `~/.openclaw/openclaw.json` and walks you through auth setup.
 
-Use `requirements.txt` for Python scripts that support the agent (e.g. CSV export, signal scoring, enrichment API clients). Install with `pip install -r requirements.txt` in the environment where those scripts run.
+---
 
-## License and compliance
+### Step 2 — Install Ollama and pull the heartbeat model
 
-Use in line with your org’s compliance and IT policies. The agent is research-only and human-in-the-loop; no autonomous emailing or purchases.
+```bash
+brew install ollama
+ollama pull llama3.2:3b
+ollama serve   # keep running in a background terminal
+```
+
+This keeps the hourly heartbeat free (no Anthropic tokens used for health checks).
+
+---
+
+### Step 3 — Clone this repo and install Python deps
+
+```bash
+git clone <repo-url>
+cd openclaw_agent
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
+
+### Step 4 — Configure OpenClaw
+
+Copy the example config and set your workspace path:
+
+```bash
+cp openclaw.json.example ~/.openclaw/openclaw.json
+```
+
+Open `~/.openclaw/openclaw.json` and update the workspace path:
+
+```json
+"workspace": "/absolute/path/to/openclaw_agent/workspace"
+```
+
+Then store your Anthropic key in OpenClaw's auth (do this once):
+
+```bash
+openclaw config set auth.anthropic.key YOUR_ANTHROPIC_API_KEY
+```
+
+> **Note:** Do not edit `~/.openclaw/agents/main/agent/auth.json` directly — OpenClaw overwrites it on each run. Always use `openclaw config set`.
+
+---
+
+### Step 5 — Set up environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your keys:
+
+```env
+ANTHROPIC_API_KEY=sk-ant-api03-...
+BRAVE_API_KEY=your-brave-key
+APOLLO_API_KEY=your-apollo-key   # optional
+```
+
+---
+
+### Step 6 — Start the gateway
+
+```bash
+openclaw gateway
+```
+
+The gateway runs on `http://localhost:18789`. Keep this terminal open.
+
+To open the dashboard UI:
+
+```bash
+openclaw dashboard   # opens http://127.0.0.1:18789 in Chrome
+```
+
+---
+
+### Step 7 — Set up the Chrome browser relay (for NMLS)
+
+The agent can control Chrome to scrape NMLS Consumer Access. This requires the OpenClaw browser extension.
+
+1. Install the extension into Chrome (one-time):
+
+   ```bash
+   openclaw browser extension install
+   # Follow the printed instructions:
+   # Chrome → chrome://extensions → Developer mode ON → Load unpacked
+   # Select: ~/.openclaw/browser/chrome-extension
+   ```
+
+2. Pin the **OpenClaw Browser Relay** extension to the Chrome toolbar.
+
+3. Open the extension options page and configure:
+   - **Port:** `18792`
+   - **Gateway token:** copy from `~/.openclaw/openclaw.json` → `gateway.auth.token`
+   - Click **Save**
+
+4. Navigate to any regular web page in Chrome (e.g. `google.com`), then click the extension icon. The badge should show **ON** and a banner will confirm "started debugging this browser."
+
+> **Note:** NMLS Consumer Access (`nmlsconsumeraccess.org`) is behind Cloudflare and blocks automated access. The agent automatically falls back to Brave Search to discover real MLOs from LinkedIn, HousingWire, and public press releases. This is the reliable default path.
+
+---
+
+### Step 8 — Run Workflow A
+
+Open the gateway dashboard or use the CLI:
+
+**Via CLI:**
+
+```bash
+openclaw agent --agent main --session-id NEW --message "$(cat <<'EOF'
+Run Workflow A from projects/mortgage-signals/RUNBOOK.md with a small batch.
+
+Constraints:
+- Use Haiku by default; escalate to Sonnet only for ambiguous dedupe/reasoning.
+- Use NMLS as identity source for live leads. If NMLS is unavailable, fall back to Brave Search for real verified identities — do not fabricate.
+- Use free search + direct scraping by default (Brave + public pages).
+- Keep enrichment disabled by default (no paid email APIs).
+- Enforce rate limits and budget policy.
+- Do not recommend add-on paid services unless I explicitly ask.
+
+Output:
+- projects/mortgage-signals/outputs/mlo_leads_YYYY-MM-DD.csv
+- projects/mortgage-signals/outputs/daily_summary_YYYY-MM-DD.md
+EOF
+)"
+```
+
+**Via dashboard:** Open `http://localhost:18789`, go to **Chat**, and paste the prompt above.
+
+Expected runtime: **2–3 minutes** for a 10-lead batch using Brave Search.
+
+---
+
+### Step 9 — Check outputs
+
+```
+workspace/projects/mortgage-signals/outputs/
+  mlo_leads_2026-MM-DD.csv        ← ranked leads, verified identities
+  daily_summary_2026-MM-DD.md     ← run summary, budget, blockers
+```
+
+Validate:
+- `nmls_id` values are real and cross-referenced
+- No `-mock` suffixes in LinkedIn URLs
+- `recommended_next_action` is `Outreach`, `Monitor`, or `Ignore` (never blank)
+- `daily_summary` includes search count and budget used
+
+---
+
+## Architecture
+
+```
+openclaw_agent/
+├── workspace/
+│   ├── SOUL.md             # Agent persona and values
+│   ├── IDENTITY.md         # Agent name and role
+│   ├── AGENTS.md           # Behavior rules and fail-closed policy
+│   ├── TOOLS.md            # Available tools and usage policy
+│   ├── USER.md             # User preferences
+│   ├── HEARTBEAT.md        # Hourly health check template
+│   ├── memory/             # Daily session notes (auto-generated, not committed)
+│   ├── outputs/            # Templates and daily summaries
+│   └── projects/
+│       └── mortgage-signals/
+│           ├── RUNBOOK.md          # Workflow steps A and B
+│           ├── SCORING_RUBRIC.md   # How leads are scored
+│           ├── SIGNAL_LIBRARY.md   # Signal definitions and weights
+│           └── outputs/            # CSV and MD outputs (not committed)
+├── workspace/agent/        # Python scaffold (optional CLI runner)
+├── openclaw.json.example   # Config template
+├── .env.example            # Environment variable template
+└── requirements.txt        # Python dependencies
+```
+
+---
+
+## Cost model
+
+| Component | Cost |
+|-----------|------|
+| Haiku (default) | ~$0.001–0.003 per run |
+| Sonnet (escalation only) | ~$0.01–0.05 per run |
+| Heartbeat (Ollama) | Free |
+| Brave Search | Free tier: 2,000 searches/mo |
+| Apollo enrichment | Free tier: ~50 exports/mo (email only; phone requires paid plan) |
+
+Daily budget target: **$5**. Monthly target: **$200**. Agent warns at 75%.
+
+---
+
+## Guardrails
+
+- **Fail-closed identity:** Agent never fabricates names, NMLS IDs, or LinkedIn URLs. If identity cannot be verified, it sets `recommended_next_action=insufficient_evidence` or asks for a seed CSV.
+- **Research-only:** Agent discovers and scores leads. All outreach is a human action.
+- **Rate limits enforced:** ≥10s between searches, max 5 searches per batch then 2-minute cooldown.
+- **No paid services by default:** Enrichment (Apollo, Hunter) is disabled unless explicitly enabled.
+
+---
+
+## Known limitations
+
+| Issue | Status |
+|-------|--------|
+| NMLS Consumer Access blocked by Cloudflare | Agent falls back to Brave Search automatically |
+| OpenClaw browser relay drops multi-step control | Use Brave Search path (reliable); browser useful for single-step navigation only |
+| `auth.json` overwritten by OpenClaw on each run | Always set keys via `openclaw config set`, not by editing the file directly |
+| Apollo free tier has no phone numbers | Upgrade to Apollo Basic ($49/mo) for direct/mobile phone exports |

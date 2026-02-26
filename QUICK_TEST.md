@@ -1,116 +1,97 @@
 # Quick test run — Mortgage Signals Agent
 
-Minimal setup and one small run so you can see results quickly.
+Validate the full workflow end-to-end in under 5 minutes.
 
 ---
 
-## 1. Setup (minimal)
+## Prerequisites checklist
 
-Do this once before your first test.
+Before running, confirm:
 
-| Step | What to do |
-|------|------------|
-| **OpenClaw** | Install [OpenClaw](https://docs.openclaw.ai) and run `openclaw setup` (or `openclaw onboard`). |
-| **Ollama** | Install [Ollama](https://ollama.ai), then run `ollama pull llama3.2:3b` so heartbeat uses no paid tokens. |
-| **Config** | Copy `openclaw.json.example` to `~/.openclaw/openclaw.json`. Set `agents.defaults.workspace` to this repo’s `workspace/` folder (full path). |
-| **Anthropic key** | Create an API key at [console.anthropic.com](https://console.anthropic.com). Set `ANTHROPIC_API_KEY` in your environment (e.g. in `.env` or `export` in the shell you use to run OpenClaw). |
-| **Search (optional)** | For real web search during the run, add a search API key (e.g. [Brave Search API](https://brave.com/search/api/)). Without it, the agent can still do a **dry run** (e.g. score and export from a small hand-fed or mock list). |
+- [ ] `openclaw gateway` is running (`http://localhost:18789` responds)
+- [ ] Ollama is running (`ollama serve`) with `llama3.2:3b` pulled
+- [ ] `~/.openclaw/openclaw.json` has correct workspace path and Brave API key
+- [ ] Anthropic key is stored: `openclaw config set auth.anthropic.key sk-ant-...`
+- [ ] `.env` has `ANTHROPIC_API_KEY` and `BRAVE_API_KEY` set
 
 ---
 
-## 2. Run a small test
+## Option A — Dry run (no API costs, instant)
 
-1. Start OpenClaw (e.g. `openclaw gateway` or your usual way to chat with the agent).
-2. In a **new session**, paste a prompt like this (adjust geography/role if you like):
-
-   **Workflow A (MLO leads), small batch:**
-
-   ```text
-   Run Workflow A from projects/mortgage-signals/RUNBOOK.md with a small test batch:
-   - Geography: California (or one state you care about)
-   - Role: mortgage loan officer
-   - Limit to top 5–10 candidates so we can validate the output quickly.
-   Write the ranked list to outputs/mlo_leads_YYYY-MM-DD.csv and update outputs/daily_summary_YYYY-MM-DD.md (use today’s date for YYYY-MM-DD).
-   ```
-
-   **Or Workflow B (distressed companies), small batch:**
-
-   ```text
-   Run Workflow B from projects/mortgage-signals/RUNBOOK.md with a small test batch:
-   - Geography: California (or one state)
-   - Company type: mortgage lenders/brokers
-   - Limit to 5–10 companies.
-   Write the ranked list to outputs/company_leads_YYYY-MM-DD.csv and update outputs/daily_summary_YYYY-MM-DD.md (use today’s date).
-   ```
-
-3. Let the agent finish. It will create (or update) files in **`workspace/outputs/`**.
-
----
-
-## 3. Where to see the results (your “database”)
-
-The agent does **not** write to a database by default. It writes to files in **`workspace/outputs/`**. You can treat those as your test results and open them in any of these ways.
-
-### Option A: Spreadsheet (simplest)
-
-- **MLO run:** Open `workspace/outputs/mlo_leads_YYYY-MM-DD.csv` in Excel, Numbers, or [Google Sheets](https://sheets.google.com) (File → Import → Upload and choose the CSV).
-- **Company run:** Open `workspace/outputs/company_leads_YYYY-MM-DD.csv` the same way.
-- **Run summary:** Open `workspace/outputs/daily_summary_YYYY-MM-DD.md` in any text editor or Markdown viewer.
-
-No account needed for local spreadsheets; Google Sheets needs a free Google account.
-
-### Option B: SQLite (query results like a database)
-
-If you want to query results with SQL (filter, sort, join), load the CSV into SQLite once per test run:
+Uses 5 pre-built mock leads from `DRY_RUN_DATA.md`. Validates the full scoring + export pipeline. Output is marked as test data.
 
 ```bash
-cd /path/to/openclaw_agent/workspace/outputs
-
-# Create a SQLite DB and import the MLO CSV (use today’s date in the filename)
-sqlite3 quick_test.db
+openclaw agent --agent main --json --message "Run Workflow A dry run using DRY_RUN_DATA.md. Output to projects/mortgage-signals/outputs/mlo_leads_$(date +%Y-%m-%d).csv and projects/mortgage-signals/outputs/daily_summary_$(date +%Y-%m-%d).md"
 ```
 
-In the SQLite shell:
+Expected: completes in ~15 seconds.
 
-```sql
-.mode csv
-.import mlo_leads_2026-02-25.csv mlo_leads
--- If the first row is headers, run: delete from mlo_leads where full_name = 'full_name';
-.quit
-```
+---
 
-Then query:
+## Option B — Live run (recommended, uses Brave Search)
+
+Discovers real California MLOs from public sources (LinkedIn, HousingWire, press releases) and scores them.
 
 ```bash
-sqlite3 quick_test.db "SELECT full_name, current_company, score_total FROM mlo_leads ORDER BY score_total DESC LIMIT 10;"
+openclaw agent --agent main --json --message "$(cat <<'EOF'
+Run Workflow A from projects/mortgage-signals/RUNBOOK.md with a small batch.
+
+Constraints:
+- Use Haiku by default; escalate to Sonnet only for ambiguous dedupe/reasoning.
+- Use NMLS as identity source. If NMLS is unavailable, fall back to Brave Search for real verified identities — do not fabricate.
+- Use free search + direct scraping by default (Brave + public pages).
+- Keep enrichment disabled by default (no paid email APIs).
+- Enforce rate limits and budget policy.
+- Do not recommend add-on paid services unless I explicitly ask.
+
+Output:
+- projects/mortgage-signals/outputs/mlo_leads_YYYY-MM-DD.csv
+- projects/mortgage-signals/outputs/daily_summary_YYYY-MM-DD.md
+EOF
+)"
 ```
 
-Use the same idea for `company_leads_YYYY-MM-DD.csv` (e.g. `.import company_leads_2026-02-25.csv company_leads`). SQLite is free and needs no server or account.
+Expected: completes in 2–3 minutes for a 10-lead batch.
 
-### Option C: Keep only the CSV + summary
-
-You can ignore SQLite and use only:
-
-- **`outputs/mlo_leads_YYYY-MM-DD.csv`** or **`outputs/company_leads_YYYY-MM-DD.csv`** — your “result set.”
-- **`outputs/daily_summary_YYYY-MM-DD.md`** — what the agent did, any issues, and next steps.
+> **Note:** NMLS Consumer Access is behind Cloudflare. The agent falls back to Brave Search automatically — this is normal and produces real, verifiable leads.
 
 ---
 
-## 4. What to check after the test
+## Validate outputs
 
-- Files exist under `workspace/outputs/` with today’s date in the name.
-- CSV opens without errors and has columns like `full_name`, `current_company`, `score_total`, `score_breakdown`, and evidence/snippet columns.
-- `daily_summary_YYYY-MM-DD.md` describes the run (e.g. how many leads, any budget or rate-limit notes).
+Check these after the run:
 
-If something failed (e.g. no search API), the daily summary should mention it; you can still do a dry run with a tiny hand-fed list to confirm scoring and export.
+```bash
+ls workspace/projects/mortgage-signals/outputs/
+```
+
+Open the CSV and confirm:
+- `full_name` and `nmls_id` are real (not `-mock` or sequential like `1234567`)
+- `recommended_next_action` is `Outreach`, `Monitor`, or `Ignore`
+- `evidence_summary` cites real sources with dates
+- No fabricated rows — if identity was unverifiable, row should show `insufficient_evidence`
+
+Open the daily summary and confirm:
+- Search count and budget are logged
+- Rate limit compliance is noted
 
 ---
 
-## 5. One-liner path reference
+## Troubleshooting
 
-- **Outputs (your test results):** `openclaw_agent/workspace/outputs/`
-- **Today’s MLO CSV:** `workspace/outputs/mlo_leads_YYYY-MM-DD.csv`
-- **Today’s company CSV:** `workspace/outputs/company_leads_YYYY-MM-DD.csv`
-- **Today’s summary:** `workspace/outputs/daily_summary_YYYY-MM-DD.md`
+| Symptom | Fix |
+|---------|-----|
+| `Error: Pass --to, --session-id, or --agent` | Add `--agent main` to the command |
+| Agent returns mock data | Check that `DRY_RUN_DATA.md` isn't being used unintentionally; re-run with explicit live instruction |
+| `tab not found` browser errors | Expected if using browser relay; agent falls back to Brave Search automatically |
+| `auth.json` reverts to old key | Use `openclaw config set auth.anthropic.key YOUR_KEY` instead of editing the file |
+| Gateway not responding | Run `openclaw gateway` in a terminal and keep it open |
 
-Replace `YYYY-MM-DD` with the date you ran the test (e.g. `2026-02-25`).
+---
+
+## Output paths
+
+```
+workspace/projects/mortgage-signals/outputs/mlo_leads_YYYY-MM-DD.csv
+workspace/projects/mortgage-signals/outputs/daily_summary_YYYY-MM-DD.md
+```

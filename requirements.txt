@@ -1,17 +1,31 @@
-# Mortgage Signals Agent — supporting scripts and connectors
-# Use for: exporters, signal scoring, enrichment clients, CSV/Sheet tooling
-# OpenClaw itself is the runtime (install separately); this file is for Python helpers.
+# Core
+python-dotenv
+pydantic
+requests
+tenacity
+loguru
+rich
 
-# CSV and data handling
-pandas>=2.0.0
+# Data export
+pandas
+openpyxl
 
-# HTTP and APIs (search, enrichment)
-requests>=2.28.0
+# Parsing + extraction
+beautifulsoup4
+lxml
+trafilatura
+tldextract
+rapidfuzz
 
-# Email verification / enrichment (use approved provider, e.g. Hunter.io)
-# hunter.io does not have an official Python package; use requests with their API
-# Optional: google-api-python-client for Google Sheets export
-# google-api-python-client>=2.0.0
+# Free search (no API key)
+duckduckgo_search
 
-# Env and config (for scripts that need .env)
-python-dotenv>=1.0.0
+# Async + guardrails
+aiohttp
+aiolimiter
+
+# Optional local storage
+duckdb
+
+# Optional headless browser scraping for JS-heavy sites
+playwright
