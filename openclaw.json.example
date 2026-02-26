@@ -1,82 +1,30 @@
 {
   "agents": {
     "defaults": {
-      "workspace": "/absolute/path/to/openclaw_agent/workspace",
       "model": {
         "primary": "anthropic/claude-haiku-4-5"
       },
       "models": {
-        "anthropic/claude-haiku-4-5": {
-          "alias": "haiku"
-        },
         "anthropic/claude-sonnet-4-5": {
           "alias": "sonnet"
         },
-        "anthropic/claude-opus-4": {
-          "alias": "opus"
+        "anthropic/claude-haiku-4-5": {
+          "alias": "haiku"
         }
       },
-      "heartbeat": {
-        "every": "1h",
-        "model": "ollama/llama3.2:3b",
-        "prompt": "Read HEARTBEAT.md if it exists (workspace context). Any blockers, opportunities, or progress updates? If nothing needs attention, reply HEARTBEAT_OK.",
-        "target": "none"
-      },
-      "compaction": {
-        "mode": "safeguard"
-      },
-      "maxConcurrent": 4,
-      "subagents": {
-        "maxConcurrent": 8
+      "cache": {
+        "enabled": true,
+        "ttl": "5m",
+        "priority": "high"
       }
     }
   },
-  "models": {
-    "providers": {
-      "ollama": {
-        "baseUrl": "http://127.0.0.1:11434/v1",
-        "apiKey": "ollama-local",
-        "api": "openai-responses",
-        "models": []
-      }
-    }
-  },
-  "tools": {
-    "web": {
-      "search": {
-        "apiKey": "YOUR_BRAVE_API_KEY"
-      }
-    }
-  },
-  "gateway": {
-    "port": 18789,
-    "mode": "local",
-    "bind": "loopback",
-    "auth": {
-      "mode": "token",
-      "token": "YOUR_GATEWAY_TOKEN"
-    },
-    "nodes": {
-      "denyCommands": [
-        "camera.snap",
-        "camera.clip",
-        "screen.record",
-        "calendar.add",
-        "contacts.add",
-        "reminders.add"
-      ]
-    }
-  },
-  "messages": {
-    "ackReactionScope": "group-mentions"
-  },
-  "commands": {
-    "native": "auto",
-    "nativeSkills": "auto",
-    "restart": true,
-    "ownerDisplay": "raw"
-  },
-  "session": {
-    "dmScope": "per-channel-peer"
+  "heartbeat": {
+    "every": "1h",
+    "model": "ollama/llama3.2:3b",
+    "session": "main",
+    "target": "local",
+    "prompt": "Check: Any blockers, opportunities, or progress updates needed?"
   }
 }
+

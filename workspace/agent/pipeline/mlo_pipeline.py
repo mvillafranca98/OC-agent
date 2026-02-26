@@ -199,8 +199,6 @@ class MLOPipeline:
                     "current_title": row.get("current_title", ""),
                     "location": row.get("location", ""),
                     "linkedin_url": _linkedin_url(results),
-                    "email": contact.email,
-                    "phone": contact.phone,
                     "company_website": contact.company_website,
                     "contact_page_url": contact.contact_page_url,
                     "suggested_email_pattern": contact.suggested_email_pattern,
@@ -225,4 +223,3 @@ class MLOPipeline:
             rate_wait_seconds=round(stats.waited_seconds, 2),
             cooldown_events=stats.batch_cooldowns,
         )
-

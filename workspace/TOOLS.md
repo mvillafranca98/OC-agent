@@ -42,34 +42,14 @@ Do not introduce paid connectors by default.
 ## Provider feature flags (required)
 
 - `SEARCH_PROVIDER=duckduckgo`
-- `ENRICHMENT_PROVIDER=apollo` (or `none` to disable)
-- `ALLOW_PAID_PROVIDERS=true` (required when ENRICHMENT_PROVIDER=apollo)
+- `ENRICHMENT_PROVIDER=none`
+- `ALLOW_PAID_PROVIDERS=false`
 
 If `ALLOW_PAID_PROVIDERS=false`, paid providers must not run.
 
-## Email enrichment (enabled when ALLOW_PAID_PROVIDERS=true)
-
-Two providers are available. Set `ENRICHMENT_PROVIDER` to choose one.
-
-**Hunter.io** (`ENRICHMENT_PROVIDER=hunter`, `HUNTER_API_KEY` required)
-- `GET https://api.hunter.io/v2/email-finder?full_name={name}&domain={domain}&api_key={key}`
-- Free tier: 25 email searches/month
-- Returns verified work email only — no phone
-- Enforce ≥5s between calls
-- If no match, leave `email` blank — do not guess or fabricate
-
-**Apollo.io** (`ENRICHMENT_PROVIDER=apollo`, `APOLLO_API_KEY` required)
-- `POST https://api.apollo.io/v1/people/match` with `name` and `domain`
-- Requires paid plan (~$49/mo) — free tier returns API_INACCESSIBLE error
-- Returns email + phone on paid plan
-- Enforce ≥5s between calls
-- If no match or error, leave `email` and `phone` blank
-
-Both providers add `email` and `phone` columns to the output CSV.
-
 ## Optional add-ons (off by default)
 
-Paid search adapters remain disabled unless explicitly enabled by feature flag and user approval.
+Paid search/enrichment adapters remain disabled unless explicitly enabled by feature flag and user approval.
 
 ## Rate limits (must enforce)
 
