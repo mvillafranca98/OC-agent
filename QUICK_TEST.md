@@ -39,6 +39,7 @@ Run Workflow A from projects/mortgage-signals/RUNBOOK.md with a small batch.
 Constraints:
 - Use Haiku by default; escalate to Sonnet only for ambiguous dedupe/reasoning.
 - Use NMLS as identity source. If NMLS is unavailable, fall back to Brave Search for real verified identities — do not fabricate.
+- Prioritize LinkedIn intent signals: "open to work" and "open for business".
 - Use free search + direct scraping by default (Brave + public pages).
 - Keep enrichment disabled by default (no paid email APIs).
 - Enforce rate limits and budget policy.

@@ -34,7 +34,7 @@ How to run daily or weekly lead generation with strict low-cost defaults.
 8. **Export** — Write `projects/mortgage-signals/outputs/mlo_leads_YYYY-MM-DD.csv` and update `projects/mortgage-signals/outputs/daily_summary_YYYY-MM-DD.md`.
 
 **Required MLO columns:**
-`full_name, nmls_id, current_company, current_title, location, linkedin_url, score_total, score_breakdown, recommended_next_action, evidence_urls, evidence_snippets`
+`full_name, nmls_id, current_company, current_title, location, linkedin_url, intent_signal, intent_phrase, intent_source_url, intent_confidence, score_total, score_breakdown, recommended_next_action, evidence_urls, evidence_snippets`
 
 ---
 

@@ -177,6 +177,18 @@ EOF
 
 Expected runtime: **2–3 minutes** for a 10-lead batch using Brave Search.
 
+### One-command local test
+
+```bash
+./test-live.sh
+```
+
+Override defaults if needed:
+
+```bash
+INPUT_CSV=workspace/projects/mortgage-signals/test_input.csv LIMIT=10 ./test-live.sh
+```
+
 ---
 
 ### Step 9 — Check outputs

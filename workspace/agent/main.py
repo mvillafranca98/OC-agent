@@ -17,6 +17,7 @@ from workspace.agent.providers.enrich_hunter import HunterEnrichmentProvider
 from workspace.agent.providers.enrich_none import NoEnrichmentProvider
 from workspace.agent.providers.scrape_requests import RequestsScrapeProvider
 from workspace.agent.providers.search_base import SearchProvider
+from workspace.agent.providers.search_brave import BraveSearchProvider
 from workspace.agent.providers.search_duckduckgo import DuckDuckGoSearchProvider
 from workspace.agent.storage.store_csv import CSVStore
 
@@ -52,6 +53,12 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Optional output directory override.",
     )
+    parser.add_argument(
+        "--target-complete",
+        type=int,
+        default=None,
+        help="Stop after N leads that have both email and LinkedIn URL.",
+    )
     return parser.parse_args()
 
 
@@ -62,6 +69,11 @@ def _build_search_provider(settings: AgentSettings) -> SearchProvider:
         raise ValueError(
             f"Search provider '{settings.search_provider}' is blocked by feature flags."
         )
+    if settings.search_provider == "brave":
+        api_key = os.getenv("BRAVE_API_KEY", "")
+        if not api_key:
+            raise ValueError("BRAVE_API_KEY is not set in environment.")
+        return BraveSearchProvider(api_key=api_key)
     raise NotImplementedError(
         f"Search provider '{settings.search_provider}' is not implemented yet."
     )
@@ -179,6 +191,7 @@ def main() -> int:
             run_date=run_date,
             output_dir=output_dir,
             limit=args.limit,
+            target_complete=args.target_complete,
         )
     else:
         pipeline = CompanyPipeline(

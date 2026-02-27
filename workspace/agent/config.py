@@ -46,6 +46,9 @@ class AgentSettings(BaseModel):
     search_results_per_query: int = Field(default=5)
     scrape_top_n: int = Field(default=2)
     scrape_timeout_seconds: float = Field(default=15.0)
+    mlo_intent_query_variants: int = Field(default=2)
+    require_intent_signal: bool = Field(default=True)
+    intent_min_confidence: float = Field(default=0.7)
 
     daily_budget_usd: float = Field(default=5.0)
     monthly_budget_usd: float = Field(default=200.0)
@@ -63,18 +66,35 @@ class AgentSettings(BaseModel):
             raise ValueError("provider value cannot be empty")
         return cleaned
 
-    @field_validator("max_searches_per_batch", "search_results_per_query", "scrape_top_n")
+    @field_validator(
+        "max_searches_per_batch",
+        "search_results_per_query",
+        "scrape_top_n",
+        "mlo_intent_query_variants",
+    )
     @classmethod
     def _require_positive_int(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("value must be > 0")
         return value
 
-    @field_validator("search_interval_seconds", "api_interval_seconds", "scrape_timeout_seconds")
+    @field_validator(
+        "search_interval_seconds",
+        "api_interval_seconds",
+        "scrape_timeout_seconds",
+        "intent_min_confidence",
+    )
     @classmethod
     def _require_positive_float(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("value must be > 0")
+        return value
+
+    @field_validator("intent_min_confidence")
+    @classmethod
+    def _intent_confidence_in_range(cls, value: float) -> float:
+        if value > 1.0:
+            raise ValueError("intent_min_confidence must be <= 1.0")
         return value
 
     @classmethod
@@ -98,6 +118,9 @@ class AgentSettings(BaseModel):
             search_results_per_query=_env_int("SEARCH_RESULTS_PER_QUERY", 5),
             scrape_top_n=_env_int("SCRAPE_TOP_N", 2),
             scrape_timeout_seconds=_env_float("SCRAPE_TIMEOUT_SECONDS", 15.0),
+            mlo_intent_query_variants=_env_int("MLO_INTENT_QUERY_VARIANTS", 2),
+            require_intent_signal=_env_bool("REQUIRE_INTENT_SIGNAL", True),
+            intent_min_confidence=_env_float("INTENT_MIN_CONFIDENCE", 0.7),
             daily_budget_usd=_env_float("DAILY_BUDGET_USD", 5.0),
             monthly_budget_usd=_env_float("MONTHLY_BUDGET_USD", 200.0),
             budget_warning_ratio=_env_float("BUDGET_WARNING_RATIO", 0.75),
